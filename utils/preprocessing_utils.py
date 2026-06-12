@@ -1,4 +1,4 @@
-"""Reusable preprocessing helpers."""
+"""Reusable preprocessing helpers for MetroPT-3 pipeline."""
 
 from __future__ import annotations
 
@@ -9,18 +9,67 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from utils.constants import (
+    ANALOGUE_WINDOW_FEATURES,
+    DIGITAL_WINDOW_FEATURES,
+    FAULT_WINDOWS,
+    HORIZON_OPTIONS,
+    RESAMPLE_RULE,
+    ROLLING_WINDOW_BINS,
+)
 
-def encode_binary_target(df: pd.DataFrame, target_col: str, positive_label: str = "Noisy") -> pd.DataFrame:
-    """Encode target as binary with positive_label mapped to 1."""
+
+def load_metropt_data(path: str) -> pd.DataFrame:
+    """Load MetroPT-3 dataset with timestamp parsing and cleanup."""
+    df = pd.read_csv(path, parse_dates=["timestamp"], low_memory=False)
+    df = df.drop(columns=["Unnamed: 0"], errors="ignore")
+    df = df.sort_values("timestamp").dropna().reset_index(drop=True)
+    return df
+
+
+def engineer_temporal_labels(df: pd.DataFrame, horizon_key: str) -> pd.DataFrame:
+    """Create binary labels from documented fault windows and pre-fault horizon."""
+    if horizon_key not in HORIZON_OPTIONS:
+        raise ValueError(f"Unsupported horizon '{horizon_key}'. Choose from {list(HORIZON_OPTIONS)}")
+
     out = df.copy()
-    out[target_col] = (out[target_col] == positive_label).astype(int)
+    out["label"] = 0
+    horizon = pd.Timedelta(hours=HORIZON_OPTIONS[horizon_key])
+    for start_str, end_str in FAULT_WINDOWS:
+        start = pd.Timestamp(start_str)
+        end = pd.Timestamp(end_str)
+        mask = (out["timestamp"] >= start - horizon) & (out["timestamp"] <= end)
+        out.loc[mask, "label"] = 1
     return out
 
 
-def get_feature_columns(df: pd.DataFrame, drop_cols: list[str], target_col: str) -> list[str]:
-    """Return model feature columns by excluding target and dropped columns."""
-    exclude = set(drop_cols + [target_col])
-    return [col for col in df.columns if col not in exclude]
+def create_window_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Create rolling-window feature vectors from row-level engineered data."""
+    indexed = df.set_index("timestamp")
+    feature_cols = ANALOGUE_WINDOW_FEATURES + DIGITAL_WINDOW_FEATURES
+    resampled = indexed[feature_cols + ["label"]].resample(RESAMPLE_RULE).agg(
+        {**{col: "mean" for col in feature_cols}, "label": "max"}
+    )
+    resampled = resampled.dropna()
+
+    result_frames = []
+    for col in ANALOGUE_WINDOW_FEATURES:
+        roll = resampled[col].rolling(window=ROLLING_WINDOW_BINS, min_periods=ROLLING_WINDOW_BINS)
+        result_frames.append(roll.mean().rename(f"{col}_mean"))
+        result_frames.append(roll.std().rename(f"{col}_std"))
+        result_frames.append(roll.min().rename(f"{col}_min"))
+        result_frames.append(roll.max().rename(f"{col}_max"))
+        result_frames.append((roll.max() - roll.min()).rename(f"{col}_range"))
+
+    for col in DIGITAL_WINDOW_FEATURES:
+        roll = resampled[col].rolling(window=ROLLING_WINDOW_BINS, min_periods=ROLLING_WINDOW_BINS)
+        result_frames.append(roll.mean().rename(f"{col}_prop"))
+
+    label_roll = resampled["label"].rolling(window=ROLLING_WINDOW_BINS, min_periods=ROLLING_WINDOW_BINS).max()
+    result_frames.append(label_roll.rename("label"))
+    out = pd.concat(result_frames, axis=1).dropna().reset_index(drop=True)
+    out["label"] = out["label"].astype(int)
+    return out
 
 
 def build_scaler_pipeline() -> Pipeline:

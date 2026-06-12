@@ -10,6 +10,8 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    precision_score,
+    recall_score,
     roc_auc_score,
 )
 from sklearn.model_selection import learning_curve
@@ -18,15 +20,16 @@ from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
 
-def get_model_configs(random_state: int) -> dict:
+def get_model_configs(random_state: int, scale_pos_weight: int) -> dict:
     """Return model registry and hyperparameter grids."""
     return {
         "random_forest": {
             "model": RandomForestClassifier(random_state=random_state, n_jobs=-1),
             "params": {
-                "n_estimators": [100, 200],
-                "max_depth": [None, 10, 20],
-                "min_samples_split": [2, 5],
+                "n_estimators": [100, 200, 300],
+                "max_depth": [10, 20, None],
+                "min_samples_split": [2, 5, 10],
+                "min_samples_leaf": [1, 2, 4],
                 "class_weight": ["balanced"],
             },
         },
@@ -56,14 +59,14 @@ def get_model_configs(random_state: int) -> dict:
                 verbosity=0,
             ),
             "params": {
-                "n_estimators": [120, 200],
+                "n_estimators": [100, 200],
                 "max_depth": [2, 3, 4],
                 "learning_rate": [0.03, 0.08],
-                "subsample": [0.7, 0.85],
+                "subsample": [0.7, 0.85, 1.0],
                 "colsample_bytree": [0.7, 0.9],
                 "min_child_weight": [3, 6, 10],
                 "reg_alpha": [0.0, 0.2, 0.6],
-                "scale_pos_weight": [4],
+                "scale_pos_weight": [scale_pos_weight],
             },
         },
     }
@@ -76,10 +79,12 @@ def evaluate_classifier(model, X, y, split_name: str) -> dict:
     return {
         "split": split_name,
         "accuracy": round(accuracy_score(y, y_pred), 4),
+        "precision": round(precision_score(y, y_pred, zero_division=0), 4),
+        "recall": round(recall_score(y, y_pred, zero_division=0), 4),
         "f1": round(f1_score(y, y_pred, average="binary"), 4),
         "roc_auc": round(roc_auc_score(y, y_prob), 4),
         "confusion_matrix": confusion_matrix(y, y_pred).tolist(),
-        "classification_report": classification_report(y, y_pred, output_dict=True),
+        "classification_report": classification_report(y, y_pred, output_dict=True, zero_division=0),
     }
 
 
@@ -140,4 +145,15 @@ def build_learning_curve_artifacts(
         "val_f1_mean": np.round(val_mean, 4).tolist(),
         "val_f1_std": np.round(val_std, 4).tolist(),
     }
+
+
+def build_horizon_random_forest(random_state: int) -> RandomForestClassifier:
+    """Return fixed RF config used in horizon comparison experiment."""
+    return RandomForestClassifier(
+        n_estimators=200,
+        max_depth=20,
+        class_weight="balanced",
+        random_state=random_state,
+        n_jobs=-1,
+    )
 

@@ -8,18 +8,12 @@ from typing import Any
 
 import joblib
 import numpy as np
-import pandas as pd
 
 
 def ensure_directories(paths: list[str]) -> None:
     """Create directories if they do not exist."""
     for path in paths:
         os.makedirs(path, exist_ok=True)
-
-
-def load_csv(path: str) -> pd.DataFrame:
-    """Load a CSV file."""
-    return pd.read_csv(path)
 
 
 def save_splits_as_npy(processed_dir: str, split_data: dict[str, np.ndarray]) -> None:
@@ -52,4 +46,10 @@ def load_inference_artifacts(models_dir: str, processed_dir: str):
     feature_cols = joblib.load(f"{processed_dir}/feature_cols.pkl")
     model_meta = joblib.load(f"{models_dir}/best_model_meta.pkl")
     return pipeline, model, feature_cols, model_meta
+
+
+def save_model_artifacts(models_dir: str, model_name: str, model, val_f1: float) -> None:
+    """Persist best model and metadata for inference service."""
+    joblib.dump(model, f"{models_dir}/best_model.pkl")
+    joblib.dump({"name": model_name, "val_f1": val_f1}, f"{models_dir}/best_model_meta.pkl")
 

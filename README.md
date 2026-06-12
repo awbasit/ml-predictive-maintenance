@@ -1,56 +1,66 @@
-# Predictive Maintenance (AC Compressor)
+# Predictive Maintenance System (MetroPT-3)
 
-End-to-end binary classification system for bearing fault detection (`Ok` vs `Noisy`) using sensor telemetry.
+Refreshed end-to-end predictive maintenance pipeline for UMaT air-compressor thesis work, built on the MetroPT-3 real industrial dataset.
 
-## Goals
+## What This Version Targets
 
-- Keep training and inference feature engineering consistent.
-- Keep modules focused and minimal (no dead legacy scripts).
-- Make the pipeline reproducible and deployment-ready.
+- Realistic fault detection using MetroPT-3 (not toy/synthetic behavior).
+- Configurable temporal labels (`1hr`, `6hr`, `24hr`) with default `6hr`.
+- Reusable utilities aligned with the latest core modules:
+  - `src/preprocess.py`
+  - `src/train.py`
+  - `api/main.py`
+  - `dashboard/app.py`
 
-## Project layout
+## Architecture
 
-- `src/preprocess.py`: preprocessing orchestration script that uses reusable utilities.
-- `src/train.py`: model training orchestration script that uses reusable utilities.
-- `api/main.py`: FastAPI service with `/predict`, `/health`, and root endpoints.
-- `dashboard/app.py`: Streamlit UI that calls the API over HTTP.
-- `utils/`: reusable support modules for constants, IO/artifacts, preprocessing helpers, training helpers, feature engineering, and API client calls.
-- `Dockerfile`: containerization for API deployment.
+- `src/preprocess.py`: load dataset, engineer labels/features, build rolling windows, split/scale/SMOTE, save artifacts.
+- `src/train.py`: train RF/DT/SVM/XGBoost with regularization, add train noise augmentation, save best model, export learning curves, run horizon comparison.
+- `api/main.py`: serve `/predict` and `/health`, approximate window features from one reading.
+- `dashboard/app.py`: Streamlit interface for MetroPT-3 sensor inputs and visual prediction results.
+- `utils/`: shared constants, feature engineering, preprocessing helpers, training helpers, IO helpers, API client helpers.
 
-## Data and artifacts
+## Expected Data and Artifacts
 
-- Input dataset: `data/raw_data.csv`
-- Processed outputs: `data/processed/*.npy`, `data/processed/feature_cols.pkl`
-- Model outputs: `models/*.pkl`, `models/evaluation_results.json`
-- Generalization diagnostics: `models/learning_curve_<best_model>.png`, `models/learning_curve_<best_model>.json`
+- Input dataset: `data/MetroPT3_Dataset.csv`
+- Preprocessing artifacts: `data/processed/*.npy`, `data/processed/feature_cols.pkl`
+- Model artifacts: `models/*.pkl`, `models/evaluation_results.json`
+- Diagnostics: `models/learning_curve_<best_model>.png`, `models/learning_curve_<best_model>.json`
+- Optional experiment: `models/horizon_comparison.json`
 
-## Quick start
+## Refresh Start (Clean Run)
 
-1. Install dependencies:
+From project root:
+
+1. Create and activate virtual environment (PowerShell)
+   - `python -m venv .venv`
+   - `.\.venv\Scripts\Activate.ps1`
+2. Install dependencies
    - `pip install -r requirements.txt`
-2. Run preprocessing:
+3. Confirm dataset exists at `data/MetroPT3_Dataset.csv`
+4. Run preprocessing (`6hr` default)
    - `python src/preprocess.py`
-3. Train models:
+5. Train models
    - `python src/train.py`
-4. Start API:
+6. Optional horizon experiment
+   - `python src/train.py --mode horizon_compare`
+7. Start API (terminal 1)
    - `uvicorn api.main:app --host 0.0.0.0 --port 8000`
-5. Start dashboard (optional, in a new shell):
+8. Start dashboard (terminal 2)
    - `streamlit run dashboard/app.py`
 
-## API contract
+After startup:
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+- Dashboard UI: `http://localhost:8501`
 
-- `GET /health`: service and artifact readiness.
-- `POST /predict`: accepts 20 raw sensor fields and returns:
-  - predicted status (`Ok` or `Noisy`)
-  - probabilities
-  - alert boolean and message
-  - active model name
+## Docker (API)
 
-## Engineering standards used
+- Build: `docker build -t pm-api .`
+- Run: `docker run --rm -p 8000:8000 pm-api`
 
-- Single source of truth for derived features (`utils/features.py`).
-- No training/inference duplication for transformations.
-- Artifact paths controlled through `MODELS_DIR` and `PROCESSED_DIR`.
-- Supporting functions are centralized in `utils/` and reused across modules.
-- Modules are separated by responsibility (preprocess, train, serve, dashboard).
-- Training adds Gaussian noise augmentation and learning-curve tracking to detect and reduce memorization risk.
+## Environment Variables
+
+- `MODELS_DIR` (default: `models`)
+- `PROCESSED_DIR` (default: `data/processed`)
+- `API_URL` for dashboard (default: `http://localhost:8000`)
