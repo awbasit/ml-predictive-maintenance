@@ -13,7 +13,7 @@ __pycache__/
 *.pyzwzwzw
 *.pyzwzwzwz
 *.tar.gz
-data/processed/
 models/*.pkl
 data/MetroPT3_Dataset.csv
 data/Data Description_Metro.pdf
+data/raw-data.csv
