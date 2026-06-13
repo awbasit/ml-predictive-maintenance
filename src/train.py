@@ -154,7 +154,7 @@ def train_xgboost(X_train, y_train, X_val, y_val, X_test, y_test):
 
     best_params = search.best_params_
     print(f"Final fit on full {len(y_train):,} rows...")
-    model = search.best_estimator__.__class__(
+    model = search.best_estimator_.__class__(
         **best_params,
         scale_pos_weight=scale_pos_weight,
         tree_method="hist",
