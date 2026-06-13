@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
+from scipy.stats import randint, uniform
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -14,62 +14,117 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import learning_curve
-from sklearn.svm import SVC
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
 
-def get_model_configs(random_state: int, scale_pos_weight: int) -> dict:
-    """Return model registry and hyperparameter grids."""
-    return {
-        "random_forest": {
-            "model": RandomForestClassifier(random_state=random_state, n_jobs=-1),
-            "params": {
-                "n_estimators": [100, 200, 300],
-                "max_depth": [10, 20, None],
-                "min_samples_split": [2, 5, 10],
-                "min_samples_leaf": [1, 2, 4],
-                "class_weight": ["balanced"],
-            },
-        },
-        "decision_tree": {
-            "model": DecisionTreeClassifier(random_state=random_state),
-            "params": {
-                "max_depth": [3, 4, 5, 6],
-                "min_samples_split": [8, 12, 20],
-                "min_samples_leaf": [3, 5, 8],
-                "criterion": ["gini", "entropy"],
-                "class_weight": ["balanced"],
-            },
-        },
-        "svm": {
-            "model": SVC(random_state=random_state, probability=True),
-            "params": {
-                "C": [0.1, 1, 10],
-                "kernel": ["rbf", "linear"],
-                "gamma": ["scale", "auto"],
-                "class_weight": ["balanced"],
-            },
-        },
-        "xgboost": {
-            "model": XGBClassifier(
-                random_state=random_state,
-                eval_metric="logloss",
-                verbosity=0,
-            ),
-            "params": {
-                "n_estimators": [100, 200],
-                "max_depth": [2, 3, 4],
-                "learning_rate": [0.03, 0.08],
-                "subsample": [0.7, 0.85, 1.0],
-                "colsample_bytree": [0.7, 0.9],
-                "min_child_weight": [3, 6, 10],
-                "reg_alpha": [0.0, 0.2, 0.6],
-                "scale_pos_weight": [scale_pos_weight],
-            },
-        },
+def compute_scale_pos_weight(y: np.ndarray) -> int:
+    """Compute XGBoost scale_pos_weight from observed class distribution."""
+    n_normal = int((y == 0).sum())
+    n_fault = int((y == 1).sum())
+    return max(n_normal // max(n_fault, 1), 1)
+
+
+def get_stratified_subsample(X: np.ndarray, y: np.ndarray, n: int, random_state: int):
+    """Return stratified subsample capped at n rows for search."""
+    if len(y) <= n:
+        return X, y
+    X_s, _, y_s, _ = train_test_split(
+        X,
+        y,
+        train_size=n,
+        stratify=y,
+        random_state=random_state,
+    )
+    return X_s, y_s
+
+
+def build_decision_tree_baseline(random_state: int) -> DecisionTreeClassifier:
+    """Return fixed Decision Tree baseline model."""
+    return DecisionTreeClassifier(
+        max_depth=15,
+        min_samples_split=20,
+        min_samples_leaf=8,
+        criterion="entropy",
+        class_weight="balanced",
+        random_state=random_state,
+    )
+
+
+def build_random_forest_fixed(random_state: int) -> RandomForestClassifier:
+    """Return fixed Random Forest model for thesis narrative."""
+    return RandomForestClassifier(
+        n_estimators=200,
+        max_depth=20,
+        min_samples_split=10,
+        min_samples_leaf=4,
+        max_samples=0.7,
+        class_weight="balanced",
+        random_state=random_state,
+        n_jobs=-1,
+    )
+
+
+def build_extra_trees_search(random_state: int) -> tuple[ExtraTreesClassifier, dict, int]:
+    """Return estimator, param space, and n_iter for ExtraTrees search."""
+    estimator = ExtraTreesClassifier(
+        class_weight="balanced",
+        random_state=random_state,
+        n_jobs=-1,
+    )
+    param_dist = {
+        "n_estimators": randint(100, 300),
+        "max_depth": [10, 15, 20, None],
+        "min_samples_split": randint(2, 20),
+        "min_samples_leaf": randint(1, 10),
+        "max_features": ["sqrt", "log2", 0.5],
     }
+    return estimator, param_dist, 10
+
+
+def build_xgboost_search(scale_pos_weight: int, random_state: int) -> tuple[XGBClassifier, dict, int]:
+    """Return estimator, param space, and n_iter for XGBoost search."""
+    estimator = XGBClassifier(
+        scale_pos_weight=scale_pos_weight,
+        tree_method="hist",
+        device="cuda",
+        eval_metric="logloss",
+        random_state=random_state,
+        verbosity=0,
+    )
+    param_dist = {
+        "n_estimators": randint(100, 300),
+        "max_depth": randint(3, 10),
+        "learning_rate": uniform(0.01, 0.19),
+        "subsample": uniform(0.6, 0.4),
+        "colsample_bytree": uniform(0.6, 0.4),
+        "min_child_weight": randint(1, 10),
+        "reg_alpha": uniform(0.0, 0.5),
+        "reg_lambda": uniform(0.5, 1.5),
+    }
+    return estimator, param_dist, 15
+
+
+def fit_xgboost_search_with_fallback(
+    search: RandomizedSearchCV, X_s: np.ndarray, y_s: np.ndarray, scale_pos_weight: int, random_state: int
+) -> RandomizedSearchCV:
+    """Fit XGBoost search with CUDA first, then CPU fallback if needed."""
+    try:
+        search.fit(X_s, y_s)
+        return search
+    except Exception as exc:
+        print(f"  XGBoost GPU unavailable ({exc}); retrying on CPU...")
+        search.estimator = XGBClassifier(
+            scale_pos_weight=scale_pos_weight,
+            tree_method="hist",
+            device="cpu",
+            eval_metric="logloss",
+            random_state=random_state,
+            verbosity=0,
+        )
+        search.fit(X_s, y_s)
+        return search
 
 
 def evaluate_classifier(model, X, y, split_name: str) -> dict:
@@ -88,68 +143,9 @@ def evaluate_classifier(model, X, y, split_name: str) -> dict:
     }
 
 
-def add_gaussian_noise(X: np.ndarray, noise_std: float, random_state: int) -> np.ndarray:
-    """Inject zero-mean Gaussian noise to improve robustness."""
-    rng = np.random.default_rng(random_state)
-    noise = rng.normal(loc=0.0, scale=noise_std, size=X.shape)
-    return X + noise
-
-
-def build_learning_curve_artifacts(
-    estimator,
-    X: np.ndarray,
-    y: np.ndarray,
-    cv,
-    output_plot_path: str,
-    train_sizes: np.ndarray | None = None,
-) -> dict:
-    """Compute and save learning-curve metrics and plot."""
-    if train_sizes is None:
-        train_sizes = np.linspace(0.1, 1.0, 8)
-
-    sizes, train_scores, val_scores = learning_curve(
-        estimator=estimator,
-        X=X,
-        y=y,
-        cv=cv,
-        train_sizes=train_sizes,
-        scoring="f1",
-        n_jobs=-1,
-        shuffle=True,
-        random_state=42,
-    )
-
-    train_mean = train_scores.mean(axis=1)
-    train_std = train_scores.std(axis=1)
-    val_mean = val_scores.mean(axis=1)
-    val_std = val_scores.std(axis=1)
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(sizes, train_mean, marker="o", color="#6a8bff", label="Train F1")
-    ax.plot(sizes, val_mean, marker="o", color="#2ed8a3", label="Validation F1")
-    ax.fill_between(sizes, train_mean - train_std, train_mean + train_std, color="#6a8bff", alpha=0.18)
-    ax.fill_between(sizes, val_mean - val_std, val_mean + val_std, color="#2ed8a3", alpha=0.18)
-    ax.set_xlabel("Training samples")
-    ax.set_ylabel("F1 score")
-    ax.set_title("Learning Curve (Train vs Validation F1)")
-    ax.grid(alpha=0.3)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(output_plot_path, dpi=160)
-    plt.close(fig)
-
-    return {
-        "train_sizes": sizes.tolist(),
-        "train_f1_mean": np.round(train_mean, 4).tolist(),
-        "train_f1_std": np.round(train_std, 4).tolist(),
-        "val_f1_mean": np.round(val_mean, 4).tolist(),
-        "val_f1_std": np.round(val_std, 4).tolist(),
-    }
-
-
-def build_horizon_random_forest(random_state: int) -> RandomForestClassifier:
-    """Return fixed RF config used in horizon comparison experiment."""
-    return RandomForestClassifier(
+def build_horizon_extra_trees(random_state: int) -> ExtraTreesClassifier:
+    """Return fixed ExtraTrees model used in horizon comparison experiment."""
+    return ExtraTreesClassifier(
         n_estimators=200,
         max_depth=20,
         class_weight="balanced",
