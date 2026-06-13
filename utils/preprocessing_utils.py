@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -47,6 +46,7 @@ def create_window_features(df: pd.DataFrame) -> pd.DataFrame:
     """Create rolling-window feature vectors from row-level engineered data."""
     indexed = df.set_index("timestamp")
     feature_cols = ANALOGUE_WINDOW_FEATURES + DIGITAL_WINDOW_FEATURES
+    # 1-minute bins become the 1-minute step for 10-minute rolling windows.
     resampled = indexed[feature_cols + ["label"]].resample(RESAMPLE_RULE).agg(
         {**{col: "mean" for col in feature_cols}, "label": "max"}
     )
@@ -98,12 +98,4 @@ def stratified_train_val_test_split(
         X_temp, y_temp, train_size=val_within_temp, random_state=random_state, stratify=y_temp
     )
     return X_train, X_val, X_test, y_train, y_val, y_test
-
-
-def apply_smote_to_train(
-    X_train: np.ndarray, y_train: np.ndarray, random_state: int, k_neighbors: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """Apply SMOTE only to training split."""
-    smote = SMOTE(random_state=random_state, k_neighbors=k_neighbors)
-    return smote.fit_resample(X_train, y_train)
 

@@ -1,6 +1,16 @@
 """
-Layer 1-5 orchestration: MetroPT-3 ingestion, labels, feature engineering,
-windowing, scaling, and optional SMOTE.
+Layer 1 + 2 orchestration: MetroPT-3 ingestion and preprocessing pipeline.
+
+Label engineering:
+- 3 selectable horizons: 1hr, 6hr, 24hr before each documented fault start
+- Rows in fault windows + pre-fault horizon are labeled as fault (1)
+
+Windowing:
+- 10-minute rolling windows with 1-minute step
+- Aggregate stats capture temporal dynamics without sequence models
+
+Class imbalance:
+- No SMOTE; downstream models use class_weight="balanced"
 """
 
 from __future__ import annotations
@@ -23,14 +33,11 @@ from utils.constants import (
     PROCESSED_DIR,
     RANDOM_STATE,
     RAW_DATA_PATH,
-    SMOTE_K_NEIGHBORS,
-    SMOTE_RATIO_THRESHOLD,
     TARGET_COL,
 )
 from utils.features import engineer_row_features
 from utils.io_utils import ensure_directories, save_splits_as_npy
 from utils.preprocessing_utils import (
-    apply_smote_to_train,
     build_scaler_pipeline,
     create_window_features,
     engineer_temporal_labels,
@@ -66,18 +73,8 @@ def run_preprocessing(horizon_key: str = DEFAULT_HORIZON) -> dict:
     X_val_scaled = pipeline.transform(X_val)
     X_test_scaled = pipeline.transform(X_test)
 
-    imbalance_ratio = (y_train == 0).sum() / max((y_train == 1).sum(), 1)
-    if imbalance_ratio > SMOTE_RATIO_THRESHOLD:
-        X_train_final, y_train_final = apply_smote_to_train(
-            X_train_scaled,
-            y_train,
-            random_state=RANDOM_STATE,
-            k_neighbors=SMOTE_K_NEIGHBORS,
-        )
-        print(f"SMOTE applied ({imbalance_ratio:.2f}:1 imbalance) -> {len(y_train_final):,} samples")
-    else:
-        X_train_final, y_train_final = X_train_scaled, y_train
-        print(f"SMOTE skipped ({imbalance_ratio:.2f}:1 imbalance)")
+    X_train_final, y_train_final = X_train_scaled, y_train
+    print("No SMOTE applied — using class_weight='balanced' in all models.")
 
     save_splits_as_npy(
         PROCESSED_DIR,
@@ -107,4 +104,4 @@ def run_preprocessing(horizon_key: str = DEFAULT_HORIZON) -> dict:
 
 
 if __name__ == "__main__":
-    run_preprocessing()
+    run_preprocessing(horizon_key="6hr")
