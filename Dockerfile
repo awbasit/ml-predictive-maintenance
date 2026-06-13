@@ -3,14 +3,16 @@ FROM python:3.11-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt .
+# Install only API dependencies (keeps image small)
+COPY api/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src/ ./src/
-COPY api/ ./api/
+# Copy application source
+COPY api/   ./api/
+COPY src/   ./src/
 COPY utils/ ./utils/
 COPY models/ ./models/
-COPY data/processed/ ./data/processed/
+COPY data/processed/feature_cols.pkl ./data/processed/feature_cols.pkl
 
 ENV MODELS_DIR=models
 ENV PROCESSED_DIR=data/processed

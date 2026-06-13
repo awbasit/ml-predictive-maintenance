@@ -4,6 +4,7 @@ Predictive Maintenance Dashboard — HMI-inspired Streamlit interface.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from datetime import datetime
@@ -37,9 +38,19 @@ st.set_page_config(
 # ─── Global CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-/* ── Base ── */
+/* ══════════════════════════════════════════════════
+   HIDE ALL STREAMLIT CHROME (menus, toolbar, footer)
+   ══════════════════════════════════════════════════ */
+#MainMenu, footer, [data-testid="stHeader"],
+[data-testid="stToolbar"], [data-testid="stDecoration"],
+[data-testid="stStatusWidget"], [data-testid="stMainMenuPopover"],
+[data-testid="manage-app-button"] { display: none !important; }
+
+/* ══════════════════════════════════════
+   BASE
+   ══════════════════════════════════════ */
 html, body, [data-testid="stAppViewContainer"] {
     background: #050f1a !important;
     font-family: 'Inter', system-ui, sans-serif;
@@ -48,208 +59,378 @@ html, body, [data-testid="stAppViewContainer"] {
     background: #081524 !important;
     border-right: 1px solid #112030;
 }
-[data-testid="stHeader"]     { display: none; }
-.block-container              { padding: 20px 28px 40px !important; }
+.block-container { padding: 20px 24px 40px !important; max-width: 100% !important; }
 section[data-testid="stSidebar"] > div { padding-top: 20px !important; }
 
-/* ── Typography ── */
+/* ══════════════════════════════════════
+   TYPOGRAPHY
+   ══════════════════════════════════════ */
 h1,h2,h3,h4 { color: #d0e8f5 !important; font-weight: 700 !important; }
 p, li       { color: #5a7a8a; }
 
-/* ── Top topbar ── */
+/* ══════════════════════════════════════
+   TOPBAR
+   ══════════════════════════════════════ */
 .topbar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
     background: #081524;
     border: 1px solid #112030;
     border-radius: 10px;
     padding: 10px 20px;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
 }
-.topbar-logo   { font-size: 20px; font-weight: 800; color: #00c8c0; letter-spacing: -0.5px; }
-.topbar-sub    { font-size: 11px; color: #3a5a6a; text-transform: uppercase; letter-spacing: 1.5px; }
-.topbar-spacer { flex: 1; }
+.topbar-sub-inline {
+    font-size: 10px;
+    color: #3a5a6a;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+    flex: 1;
+}
 .topbar-chip {
     background: #0c1e30;
     border: 1px solid #1a3244;
     border-radius: 20px;
     padding: 4px 14px;
-    font-size: 12px;
+    font-size: 11px;
     color: #7a9ab0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    white-space: nowrap;
+    flex: 1;
+    text-align: center;
 }
 
-/* ── HMI Panel card ── */
+/* ══════════════════════════════════════
+   PANEL CARDS
+   ══════════════════════════════════════ */
 .panel {
     background: #0c1e30;
     border: 1px solid #1a3244;
     border-radius: 12px;
-    padding: 16px 20px 20px;
-    position: relative;
-    height: 100%;
+    padding: 14px 18px 18px;
 }
 .panel-header {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     color: #3a5a6a;
     text-transform: uppercase;
     letter-spacing: 2px;
     border-bottom: 1px solid #112030;
-    padding-bottom: 10px;
-    margin-bottom: 14px;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
 }
 .panel-header-dot {
-    width: 7px; height: 7px;
+    width: 6px; height: 6px;
     border-radius: 50%;
     background: #00c8c0;
-    box-shadow: 0 0 6px #00c8c0;
-    display: inline-block;
+    box-shadow: 0 0 5px #00c8c0;
+    flex-shrink: 0;
 }
 
-/* ── KPI tiles (like HMI stat boxes) ── */
-.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+/* ══════════════════════════════════════
+   KPI TILES
+   ══════════════════════════════════════ */
 .kpi-tile {
     background: #081524;
     border: 1px solid #112030;
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 10px 12px;
+    height: 100%;
+    box-sizing: border-box;
 }
-.kpi-tile.accent-teal  { border-top: 2px solid #00c8c0; }
-.kpi-tile.accent-blue  { border-top: 2px solid #0094c6; }
-.kpi-tile.accent-red   { border-top: 2px solid #ff3d5a; }
-.kpi-tile.accent-green { border-top: 2px solid #00e096; }
-.kpi-tile.accent-amber { border-top: 2px solid #ffb300; }
-.kpi-big   { font-size: 28px; font-weight: 800; color: #d0e8f5; line-height: 1.1; margin: 2px 0; }
-.kpi-unit  { font-size: 11px; color: #3a5a6a; font-weight: 600; }
-.kpi-label { font-size: 9px; color: #3a5a6a; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
+.kpi-tile.accent-teal   { border-top: 2px solid #00c8c0; }
+.kpi-tile.accent-blue   { border-top: 2px solid #0094c6; }
+.kpi-tile.accent-red    { border-top: 2px solid #ff3d5a; }
+.kpi-tile.accent-green  { border-top: 2px solid #00e096; }
+.kpi-tile.accent-amber  { border-top: 2px solid #ffb300; }
+.kpi-tile.accent-purple { border-top: 2px solid #9b72cf; }
+.kpi-big   { font-size: clamp(18px,2.5vw,28px); font-weight: 800; color: #d0e8f5; line-height: 1.1; margin: 2px 0; }
+.kpi-unit  { font-size: 10px; color: #3a5a6a; font-weight: 600; }
+.kpi-label { font-size: 8px; color: #3a5a6a; text-transform: uppercase; letter-spacing: 1.2px; margin-top: 3px; }
 
-/* ── Wide metric bar (4-col) ── */
-.metric-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin: 14px 0; }
+/* ══════════════════════════════════════
+   4-CELL METRIC ROW
+   ══════════════════════════════════════ */
+.metric-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 12px 0;
+}
 .metric-cell {
     background: #0c1e30;
     border: 1px solid #1a3244;
     border-radius: 10px;
-    padding: 16px 18px;
+    padding: 14px 16px;
     text-align: center;
+    min-width: 0;
 }
 .metric-cell:hover { border-color: #264a60; }
-.metric-val   { font-size: 22px; font-weight: 700; color: #d0e8f5; line-height: 1.2; }
-.metric-label { font-size: 10px; color: #3a5a6a; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; }
+.metric-val   { font-size: clamp(14px,1.8vw,22px); font-weight: 700; color: #d0e8f5; line-height: 1.2; word-break: break-word; }
+.metric-label { font-size: 9px; color: #3a5a6a; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
 
-/* ── Alert banners ── */
+/* ══════════════════════════════════════
+   ALERT BANNERS
+   ══════════════════════════════════════ */
 .banner {
     border-radius: 10px;
-    padding: 14px 20px;
+    padding: 12px 18px;
     font-weight: 600;
-    font-size: 15px;
+    font-size: clamp(13px,1.5vw,15px);
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 }
 .banner-fault  { background:rgba(255,61,90,.08);  border:1px solid #ff3d5a; border-left:4px solid #ff3d5a; color:#ff3d5a; }
 .banner-normal { background:rgba(0,224,150,.07);  border:1px solid #00e096; border-left:4px solid #00e096; color:#00e096; }
 
-/* ── Sensor section labels ── */
-.sensor-section {
+/* ══════════════════════════════════════
+   HERO TITLE BLOCK
+   ══════════════════════════════════════ */
+.hero {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 8px 0 22px;
+}
+.hero-icon {
+    font-size: clamp(36px, 4.5vw, 52px);
+    line-height: 1;
+    color: #00c8c0;
+    filter: drop-shadow(0 0 14px rgba(0,200,192,0.50));
+    flex-shrink: 0;
+}
+.hero-title {
+    font-size: clamp(26px, 3.8vw, 46px);
+    font-weight: 900;
+    color: #d0e8f5;
+    letter-spacing: -1.5px;
+    line-height: 1.05;
+}
+.hero-title span { color: #00c8c0; }
+.hero-sub {
+    font-size: clamp(10px, 1.1vw, 12px);
+    color: #3a5a6a;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    margin-top: 5px;
+}
+
+/* ══════════════════════════════════════
+   SENSOR PANEL — CONTAINER OVERRIDES
+   ══════════════════════════════════════ */
+
+/* Bordered st.container() → our dark card style */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border: 1px solid #1a3244 !important;
+    border-radius: 12px !important;
+    background-color: #0c1e30 !important;
+    padding: 6px 10px 12px !important;
+    transition: border-color .2s;
+}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: #264a60 !important;
+}
+
+/* Section heading inside a sensor container */
+.sensor-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 9px;
+    font-weight: 800;
+    color: #00c8c0;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #112030;
+}
+.sensor-group-head::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 11px;
+    background: #00c8c0;
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(0,200,192,.5);
+    flex-shrink: 0;
+}
+
+/* Individual slider value display */
+.sensor-val-card {
+    background: #081524;
+    border: 1px solid #112030;
+    border-radius: 8px;
+    padding: 8px 12px 4px;
+    margin-bottom: 4px;
+    text-align: center;
+}
+.sensor-val-card .sv-name  { font-size: 8px; font-weight: 700; color: #3a5a6a; text-transform: uppercase; letter-spacing: 1.5px; }
+.sensor-val-card .sv-value { font-size: clamp(16px,1.8vw,22px); font-weight: 800; color: #00c8c0; line-height: 1.1; margin: 2px 0; }
+.sensor-val-card .sv-unit  { font-size: 9px; color: #3a5a6a; }
+
+/* Digital toggle row */
+.dig-chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
+
+/* ══════════════════════════════════════
+   SENSOR SECTION LABELS (legacy fallback)
+   ══════════════════════════════════════ */
+.sensor-section {
+    font-size: 8px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 2px;
     color: #3a5a6a;
-    margin: 16px 0 8px;
-    padding-bottom: 5px;
+    margin: 14px 0 6px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #112030;
 }
 
-/* ── Digital signal toggle chips ── */
-.dig-label {
-    text-align: center;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: #3a5a6a;
-    margin-bottom: 2px;
+/* ══════════════════════════════════════
+   RUN FAULT ANALYSIS — HMI ACTION BUTTON
+   ══════════════════════════════════════ */
+@keyframes hmi-shimmer {
+    0%   { background-position: 200% center; }
+    100% { background-position: -200% center; }
+}
+@keyframes hmi-pulse {
+    0%, 100% { box-shadow: 0 0 18px rgba(0,200,192,.35), 0 0 0 0 rgba(0,200,192,.2); }
+    50%       { box-shadow: 0 0 30px rgba(0,200,192,.55), 0 0 0 6px rgba(0,200,192,.0); }
 }
 
-/* ── Primary button ── */
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #006e6a 0%, #00c8c0 100%) !important;
-    border: none !important;
-    border-radius: 8px !important;
+    width: 100% !important;
+    background: linear-gradient(90deg,
+        #003d3b 0%, #006b68 25%, #00c8c0 50%, #006b68 75%, #003d3b 100%) !important;
+    background-size: 300% 100% !important;
+    animation: hmi-shimmer 5s linear infinite, hmi-pulse 3s ease-in-out infinite !important;
+    border: 1px solid rgba(0,200,192,0.5) !important;
+    border-radius: 10px !important;
     color: #ffffff !important;
-    font-size: 15px !important;
-    font-weight: 700 !important;
-    height: 52px !important;
-    letter-spacing: 0.6px;
-    transition: opacity .2s, box-shadow .2s;
-    box-shadow: 0 4px 18px rgba(0,200,192,0.25);
+    font-size: clamp(13px,1.3vw,16px) !important;
+    font-weight: 900 !important;
+    height: 60px !important;
+    letter-spacing: 3px !important;
+    text-transform: uppercase !important;
 }
 .stButton > button[kind="primary"]:hover {
-    opacity: .9 !important;
-    box-shadow: 0 6px 24px rgba(0,200,192,0.4) !important;
+    animation-play-state: paused !important;
+    background: linear-gradient(90deg, #00a89f, #00c8c0) !important;
+    box-shadow: 0 0 40px rgba(0,200,192,.65) !important;
+    border-color: #00c8c0 !important;
+}
+/* Force white text on all child elements Streamlit creates */
+.stButton > button[kind="primary"] *,
+.stButton > button[kind="primary"] p,
+.stButton > button[kind="primary"] span,
+.stButton > button[kind="primary"] div {
+    color: #ffffff !important;
+    font-weight: 900 !important;
+    font-size: clamp(13px,1.3vw,16px) !important;
+    letter-spacing: 3px !important;
+    text-transform: uppercase !important;
+    background: transparent !important;
 }
 
-/* ── Sidebar ── */
+/* Secondary (Clear Session) button */
+.stButton > button:not([kind="primary"]) {
+    background: #0c1e30 !important;
+    border: 1px solid #1a3244 !important;
+    border-radius: 8px !important;
+    color: #5a7a8a !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+.stButton > button:not([kind="primary"]):hover {
+    border-color: #264a60 !important;
+    color: #d0e8f5 !important;
+}
+
+/* ══════════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════════ */
 .sidebar-label {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 2px;
     color: #00c8c0;
-    margin: 22px 0 10px;
-    padding-bottom: 7px;
+    margin: 20px 0 8px;
+    padding-bottom: 6px;
     border-bottom: 1px solid #112030;
 }
 .stat-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 0;
+    padding: 5px 0;
     border-bottom: 1px solid #0c1e30;
     font-size: 12px;
+    gap: 8px;
 }
-.stat-key { color: #3a5a6a; }
-.stat-val { color: #d0e8f5; font-weight: 600; }
+.stat-key { color: #3a5a6a; white-space: nowrap; }
+.stat-val { color: #d0e8f5; font-weight: 600; text-align: right; word-break: break-word; }
 
 /* ── Status badge ── */
 .sbadge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
+    gap: 5px;
+    padding: 4px 10px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.5px;
 }
 .sbadge-online  { background:rgba(0,200,192,.12); color:#00c8c0; border:1px solid #00c8c0; }
 .sbadge-offline { background:rgba(255,61,90,.12);  color:#ff3d5a; border:1px solid #ff3d5a; }
 
-/* ── Tabs ── */
-[data-testid="stTabs"] button            { color:#3a5a6a !important; font-weight:600 !important; font-size:13px !important; }
+/* ══════════════════════════════════════
+   TABS
+   ══════════════════════════════════════ */
+[data-testid="stTabs"] button { color:#3a5a6a !important; font-weight:600 !important; font-size:clamp(11px,1.2vw,13px) !important; }
 [data-testid="stTabs"] button[aria-selected="true"] {
     color:#00c8c0 !important;
     border-bottom-color:#00c8c0 !important;
 }
 
-/* ── Table ── */
+/* ══════════════════════════════════════
+   MISC
+   ══════════════════════════════════════ */
 [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
-
-/* ── Divider ── */
 hr { border-color: #112030 !important; }
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: #081524; }
 ::-webkit-scrollbar-thumb { background: #1a3244; border-radius: 3px; }
+
+/* ══════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   ══════════════════════════════════════ */
+@media screen and (max-width: 1100px) {
+    .metric-row { grid-template-columns: repeat(2, 1fr); }
+    .topbar-sub-inline { display: none; }
+}
+@media screen and (max-width: 768px) {
+    .metric-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .block-container { padding: 12px 10px 30px !important; }
+    .topbar { padding: 8px 12px; flex-direction: column; align-items: flex-start; }
+    .topbar-chip, .topbar-sub-inline { display: none; }
+    .kpi-big { font-size: 18px !important; }
+    .panel { padding: 10px 12px 14px; }
+    .metric-cell { padding: 10px 10px; }
+}
+@media screen and (max-width: 480px) {
+    .metric-row { grid-template-columns: 1fr 1fr; gap: 5px; }
+    .banner { font-size: 12px; padding: 10px 12px; }
+    .kpi-big { font-size: 16px !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -263,11 +444,12 @@ def _layout(height: int = 300, **kw) -> dict:
     """Merge dark-theme base with caller overrides — no duplicate-key risk."""
     base: dict = {
         **_BG,
-        "font":   _FONT,
-        "xaxis":  kw.pop("xaxis",  dict(**_GRID)),
-        "yaxis":  kw.pop("yaxis",  dict(**_GRID)),
-        "margin": kw.pop("margin", dict(t=50, b=40, l=50, r=20)),
-        "height": height,
+        "font":     _FONT,
+        "autosize": True,
+        "xaxis":    kw.pop("xaxis",  dict(**_GRID)),
+        "yaxis":    kw.pop("yaxis",  dict(**_GRID)),
+        "margin":   kw.pop("margin", dict(t=50, b=40, l=50, r=20)),
+        "height":   height,
     }
     base.update(kw)
     return base
@@ -302,9 +484,25 @@ if "history" not in st.session_state:
 
 
 # ─── Cached API calls ─────────────────────────────────────────────────────────
+def _load_eval_results_from_disk() -> dict | None:
+    """Read evaluation_results.json directly — used when the API is offline."""
+    candidates = [
+        PROJECT_ROOT / "models" / "evaluation_results.json",
+        PROJECT_ROOT / "evaluation_results.json",
+    ]
+    for path in candidates:
+        if path.exists():
+            with open(path, encoding="utf-8") as fh:
+                return json.load(fh)
+    return None
+
+
 @st.cache_data(ttl=60)
 def _fetch_metrics(api_url: str) -> dict | None:
-    return get_metrics(api_url)
+    data = get_metrics(api_url)
+    if data is None:
+        data = _load_eval_results_from_disk()
+    return data
 
 
 @st.cache_data(ttl=60)
@@ -624,38 +822,85 @@ def render_sidebar() -> None:
 
 # ─── Sensor input panel ───────────────────────────────────────────────────────
 def collect_inputs() -> dict:
-    st.markdown("<div class='panel'><div class='panel-header'><span class='panel-header-dot'></span>Sensor Inputs</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='sensor-section'>Pressure Sensors (bar)</div>", unsafe_allow_html=True)
-    p_keys = ["TP2", "TP3", "H1", "DV_pressure", "Reservoirs"]
-    p_cols = st.columns(5)
-    pv: dict[str, float] = {}
-    for col, key in zip(p_cols, p_keys):
-        lo, hi, default, unit = ANALOGUE[key]
-        with col:
-            pv[key] = st.slider(
-                f"{key}", min_value=float(lo), max_value=float(hi),
-                value=float(default),
-                step=0.001 if abs(hi - lo) <= 2 else 0.01,
-                format="%.3f",
+    # ── Pressure Sensors ────────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown(
+            "<div class='sensor-group-head'>Pressure Sensors</div>",
+            unsafe_allow_html=True,
+        )
+        p_keys = ["TP2", "TP3", "H1", "DV_pressure", "Reservoirs"]
+        p_cols = st.columns(5)
+        pv: dict[str, float] = {}
+        for col, key in zip(p_cols, p_keys):
+            lo, hi, default, unit = ANALOGUE[key]
+            with col:
+                val = st.slider(
+                    f"{key}",
+                    min_value=float(lo), max_value=float(hi),
+                    value=float(default),
+                    step=0.001 if abs(hi - lo) <= 2 else 0.01,
+                    format="%.3f",
+                    label_visibility="collapsed",
+                )
+                pv[key] = val
+                st.markdown(
+                    f"<div class='sensor-val-card'>"
+                    f"<div class='sv-name'>{key}</div>"
+                    f"<div class='sv-value'>{val:.3f}</div>"
+                    f"<div class='sv-unit'>{unit}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+    # ── Temperature & Current ────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown(
+            "<div class='sensor-group-head'>Temperature &amp; Current</div>",
+            unsafe_allow_html=True,
+        )
+        tc = st.columns(2)
+        with tc[0]:
+            oil_temp = st.slider(
+                "Oil Temperature", min_value=30.0, max_value=100.0,
+                value=53.6, step=0.1, label_visibility="collapsed",
+            )
+            st.markdown(
+                f"<div class='sensor-val-card'>"
+                f"<div class='sv-name'>Oil Temperature</div>"
+                f"<div class='sv-value'>{oil_temp:.1f}</div>"
+                f"<div class='sv-unit'>°C</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with tc[1]:
+            motor_curr = st.slider(
+                "Motor Current", min_value=0.0, max_value=10.0,
+                value=0.04, step=0.01, label_visibility="collapsed",
+            )
+            st.markdown(
+                f"<div class='sensor-val-card'>"
+                f"<div class='sv-name'>Motor Current</div>"
+                f"<div class='sv-value'>{motor_curr:.2f}</div>"
+                f"<div class='sv-unit'>A</div>"
+                f"</div>",
+                unsafe_allow_html=True,
             )
 
-    st.markdown("<div class='sensor-section'>Temperature & Current</div>", unsafe_allow_html=True)
-    tc = st.columns(2)
-    with tc[0]:
-        oil_temp = st.slider("Oil Temperature (°C)", 30.0, 100.0, 53.6, 0.1)
-    with tc[1]:
-        motor_curr = st.slider("Motor Current (A)", 0.0, 10.0, 0.04, 0.01)
-
-    st.markdown("<div class='sensor-section'>Digital Valve Signals</div>", unsafe_allow_html=True)
-    d_cols = st.columns(8)
-    dv: dict[str, float] = {}
-    for col, (sensor, default) in zip(d_cols, DIGITAL_DEFAULTS.items()):
-        with col:
-            st.markdown(f"<div class='dig-label'>{sensor}</div>", unsafe_allow_html=True)
-            dv[sensor] = float(st.toggle(f"_{sensor}", value=default, label_visibility="collapsed"))
-
-    st.markdown("</div>", unsafe_allow_html=True)
+    # ── Digital Valve Signals ────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown(
+            "<div class='sensor-group-head'>Digital Valve Signals</div>",
+            unsafe_allow_html=True,
+        )
+        digital_items = list(DIGITAL_DEFAULTS.items())
+        row1, row2 = digital_items[:4], digital_items[4:]
+        dv: dict[str, float] = {}
+        for row in (row1, row2):
+            d_cols = st.columns(4)
+            for col, (sensor, default) in zip(d_cols, row):
+                with col:
+                    dv[sensor] = float(st.toggle(sensor, value=default))
 
     return {**pv, "Oil_temperature": oil_temp, "Motor_current": motor_curr, **dv}
 
@@ -817,61 +1062,35 @@ def render_performance(metrics: dict | None) -> None:
     )
 
 
-# ─── System info tab ──────────────────────────────────────────────────────────
-def render_system_info(fi_data: dict | None) -> None:
-    st.markdown("### ℹ️ System & Pipeline")
-    health = check_api_health(API_URL)
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.markdown("<div class='panel'><div class='panel-header'><span class='panel-header-dot'></span>API Health</div>", unsafe_allow_html=True)
-        if health:
-            st.json(health)
-        else:
-            st.error(f"API unreachable at `{API_URL}`")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with c2:
-        st.markdown("<div class='panel'><div class='panel-header'><span class='panel-header-dot'></span>Dataset & Pipeline</div>", unsafe_allow_html=True)
-        st.markdown("""
-| Property | Value |
-|---|---|
-| Dataset | MetroPT-3 (industrial compressor) |
-| Raw rows | ~1.5 M |
-| After windowing | ~100 K |
-| Fault rate | ~2.5% |
-| Horizons | 1 hr / 6 hr / 24 hr |
-| Split | 70 / 15 / 15 stratified |
-| Scaler | StandardScaler |
-| Imbalance | class_weight="balanced" |
-        """)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    if fi_data:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### 🔍 Feature Importances")
-        st.plotly_chart(_feature_importance_chart(fi_data), width="stretch")
-
-
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def main() -> None:
     render_sidebar()
 
-    # Top bar
+    # ── Hero title ───────────────────────────────────────────────────────────
     health     = check_api_health(API_URL)
-    model_chip = health.get("model_name","—").replace("_"," ").title() if health else "Offline"
-    served     = health.get("predictions_served",0) if health else 0
+    model_chip = health.get("model_name", "—").replace("_", " ").title() if health else "Offline"
+    served     = health.get("predictions_served", 0) if health else 0
     now_str    = datetime.now().strftime("%H:%M:%S")
-    status_dot = "🟢" if (health and health.get("model_loaded")) else "🔴"
+    online     = health and health.get("model_loaded")
+    status_dot = "🟢" if online else "🔴"
 
     st.markdown(
+        "<div class='hero'>"
+        "<div class='hero-icon'>⬡</div>"
+        "<div>"
+        "<div class='hero-title'>Compressor <span>Predictive</span><br>Maintenance</div>"
+        "</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Slim status topbar ───────────────────────────────────────────────────
+    st.markdown(
         f"<div class='topbar'>"
-        f"<div><div class='topbar-logo'>⬡ PredictMaint</div>"
-        f"<div class='topbar-sub'>Compressor Predictive Maintenance · MetroPT-3</div></div>"
-        f"<div class='topbar-spacer'></div>"
-        f"<span class='topbar-chip'>{status_dot} {model_chip}</span>"
-        f"<span class='topbar-chip'>📡 {served:,} served</span>"
-        f"<span class='topbar-chip'>🕐 {now_str}</span>"
+        f"<span class='topbar-sub-inline'>MetroPT-3 Industrial Air Compressor &nbsp;·&nbsp; Real-time Fault Detection AI</span>"
+        f"<span class='topbar-chip'>{status_dot}&nbsp; {model_chip}</span>"
+        f"<span class='topbar-chip'>📡&nbsp; {served:,} predictions served</span>"
+        f"<span class='topbar-chip'>🕐&nbsp; {now_str}</span>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -879,13 +1098,13 @@ def main() -> None:
     metrics = _fetch_metrics(API_URL)
     fi_data = _fetch_fi(API_URL)
 
-    tab1, tab2, tab3 = st.tabs(["⚡  Live Prediction", "📊  Model Performance", "ℹ️  System"])
+    tab1, tab2 = st.tabs(["⚡  Live Prediction", "📊  Model Performance"])
 
     with tab1:
         payload = collect_inputs()
         st.markdown("<br>", unsafe_allow_html=True)
 
-        if st.button("⚡  Run Fault Analysis", type="primary", use_container_width=True):
+        if st.button("⚡  ANALYSE SENSOR READINGS", type="primary", use_container_width=True):
             with st.spinner("Analysing sensor readings…"):
                 result = call_predict(API_URL, payload)
 
@@ -915,9 +1134,6 @@ def main() -> None:
 
     with tab2:
         render_performance(metrics)
-
-    with tab3:
-        render_system_info(fi_data)
 
     st.markdown(
         "<hr><div style='text-align:center;color:#1a3244;font-size:11px;padding:8px 0;'>"

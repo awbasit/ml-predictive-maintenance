@@ -3,19 +3,21 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pyw
-*.pyz
-*.pywz
-*.pyzw
-*.pyzwz
-*.pyzwzw
-*.pyzwzwz
-*.pyzwzwzw
-*.pyzwzwzwz
-*.tar.gz
-models/*.pkl
+*.env
+*.env.*
+
+# Large data files
 data/MetroPT3_Dataset.csv
-data/Data Description_Metro.pdf
-data/raw-data.csv
-data/processed/
-models/evaluation_results.json
+data/raw_data.csv
+data/Data\ Description_Metro.pdf
+data/processed/*.npy
+
+# Compressed archives
+*.tar.gz
+*.zip
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
