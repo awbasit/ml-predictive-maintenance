@@ -5,6 +5,3 @@ backgroundColor = "#050f1a"
 secondaryBackgroundColor = "#0c1e30"
 textColor       = "#d0e8f5"
 font            = "sans serif"
-
-[ui]
-sidebarState = "expanded"

@@ -68,40 +68,37 @@ button[data-testid="stSidebarCollapseButton"],
 }
 
 /* ══════════════════════════════════════
-   SIDEBAR — fixed width, scrollable, readable
+   SIDEBAR — fixed width, styled
    ══════════════════════════════════════ */
 section[data-testid="stSidebar"] {
     background: #081524 !important;
     border-right: 1px solid #112030;
-    width: 280px !important;
-    min-width: 280px !important;
-    max-width: 280px !important;
-    flex: 0 0 280px !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    width: 300px !important;
+    min-width: 300px !important;
+    max-width: 300px !important;
 }
-/* Remove empty Streamlit sidebar header spacer */
+/* Collapse the default Streamlit sidebar top spacer to zero */
 [data-testid="stSidebarHeader"] {
-    height: 0 !important;
     min-height: 0 !important;
+    height: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
 }
 section[data-testid="stSidebar"] > div {
-    padding: 8px 12px 24px !important;
-    width: auto !important;
-    max-width: 100% !important;
+    background: #081524 !important;
+    padding: 16px 14px 20px !important;
     box-sizing: border-box !important;
 }
-[data-testid="stSidebarContent"] {
-    padding: 0 0.25rem 1rem !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+/* Scrollbar */
+section[data-testid="stSidebar"]::-webkit-scrollbar { width: 5px; }
+section[data-testid="stSidebar"]::-webkit-scrollbar-thumb {
+    background: #1a3244; border-radius: 3px;
 }
-/* Sidebar text & controls — force readable colors on dark bg */
+
+/* ── Sidebar text ── */
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] li,
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span,
-section[data-testid="stSidebar"] .stCaption,
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] small {
     color: #c8dce8 !important;
@@ -109,38 +106,70 @@ section[data-testid="stSidebar"] small {
 section[data-testid="stSidebar"] .stat-key { color: #6a8a9a !important; }
 section[data-testid="stSidebar"] .stat-val { color: #d0e8f5 !important; }
 section[data-testid="stSidebar"] .sidebar-label { color: #00c8c0 !important; }
+
+/* ── "Active profile: Normal" — force correct size ── */
+section[data-testid="stSidebar"] .scenario-active,
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p.scenario-active {
+    font-size: 11px !important;
+    color: #8aaaba !important;
+    margin: 4px 0 8px !important;
+    line-height: 1.5 !important;
+}
+section[data-testid="stSidebar"] .scenario-active strong {
+    color: #d0e8f5 !important;
+    font-size: 11px !important;
+}
+
+/* ── Scenario buttons: Normal = green, Faulty = red ── */
+section[data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"]:first-child .stButton > button {
+    background: rgba(0,224,150,.10) !important;
+    border: 1px solid rgba(0,224,150,.55) !important;
+    color: #00e096 !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"]:first-child .stButton > button:hover {
+    background: rgba(0,224,150,.20) !important;
+    border-color: #00e096 !important;
+}
+section[data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"]:last-child .stButton > button {
+    background: rgba(255,61,90,.10) !important;
+    border: 1px solid rgba(255,61,90,.55) !important;
+    color: #ff3d5a !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"]:last-child .stButton > button:hover {
+    background: rgba(255,61,90,.20) !important;
+    border-color: #ff3d5a !important;
+}
+
+/* ── Generic sidebar buttons (Clear Session, expander default) ── */
 section[data-testid="stSidebar"] .stButton > button {
     color: #d0e8f5 !important;
     background: #0c1e30 !important;
     border: 1px solid #1a3244 !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
 }
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary,
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary span {
-    color: #d0e8f5 !important;
+    color: #c8dce8 !important;
+    font-size: 13px !important;
 }
-
-/* Main content — offset for absolute-positioned stMain + clear fixed header */
-section[data-testid="stMain"] {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
+section[data-testid="stSidebar"] [data-testid="stElementContainer"] {
+    margin-bottom: 2px !important;
 }
-[data-testid="stAppViewContainer"]:has(section[data-testid="stSidebar"][aria-expanded="true"])
-section[data-testid="stMain"] > div.block-container {
-    margin-left: 280px !important;
-    max-width: calc(100% - 280px) !important;
-    box-sizing: border-box !important;
-    padding: 3.25rem 1.5rem 2.5rem !important;
+section[data-testid="stSidebar"] [data-testid="column"] {
+    padding: 0 3px !important;
 }
-[data-testid="stAppViewContainer"]:has(section[data-testid="stSidebar"][aria-expanded="false"])
-section[data-testid="stMain"] > div.block-container {
-    margin-left: 0 !important;
-    max-width: 100% !important;
-    padding: 3.25rem 1.5rem 2.5rem !important;
-}
-section[data-testid="stSidebar"] .scenario-active,
-section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
 section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
     color: #8aaaba !important;
+}
+
+/* Main content padding */
+section[data-testid="stMain"] > div.block-container {
+    padding: 3rem 1.75rem 2.5rem !important;
 }
 
 /* ══════════════════════════════════════
@@ -458,10 +487,11 @@ p, li       { color: #5a7a8a; }
     text-transform: uppercase;
     letter-spacing: 2px;
     color: #00c8c0;
-    margin: 20px 0 8px;
-    padding-bottom: 6px;
+    margin: 12px 0 6px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #112030;
 }
+.sidebar-label:first-of-type { margin-top: 6px; }
 .stat-row {
     display: flex;
     justify-content: space-between;
@@ -527,6 +557,48 @@ div[data-testid="stSidebar"] .stButton > button.scenario-fault-btn {
 }
 .sbadge-online  { background:rgba(0,200,192,.12); color:#00c8c0; border:1px solid #00c8c0; }
 .sbadge-offline { background:rgba(255,61,90,.12);  color:#ff3d5a; border:1px solid #ff3d5a; }
+
+/* ── Sidebar status bar ── */
+.sidebar-status-bar {
+    background: #0c1e30;
+    border: 1px solid #112030;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin: 4px 0 8px;
+}
+.sidebar-status-bar .sbadge {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 6px;
+    padding: 3px 8px;
+    font-size: 10px;
+}
+.sidebar-status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+.sidebar-status-cell {
+    background: #081524;
+    border: 1px solid #1a3244;
+    border-radius: 5px;
+    padding: 4px 7px;
+    font-size: 9px;
+    color: #6a8a9a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+.sidebar-status-cell strong {
+    display: block;
+    color: #d0e8f5;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 1px;
+}
 
 /* ══════════════════════════════════════
    TABS
@@ -966,60 +1038,63 @@ def _history_chart(history: list) -> go.Figure | None:
 
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
-def render_sidebar() -> None:
+def _render_sidebar_status_bar(health: dict | None) -> None:
+    online = health and health.get("model_loaded")
+    now_str = datetime.now().strftime("%H:%M:%S")
+    if online:
+        model = health.get("model_name", "—").replace("_", " ").title()
+        val_f1 = f"{health.get('model_val_f1', 0):.4f}"
+        served = f"{health.get('predictions_served', 0):,}"
+        st.markdown(
+            "<div class='sidebar-status-bar'>"
+            "<span class='sbadge sbadge-online'>⬤ API Online</span>"
+            "<div class='sidebar-status-grid'>"
+            f"<div class='sidebar-status-cell'>Model<strong>{model}</strong></div>"
+            f"<div class='sidebar-status-cell'>Val F1<strong>{val_f1}</strong></div>"
+            f"<div class='sidebar-status-cell'>Served<strong>{served}</strong></div>"
+            f"<div class='sidebar-status-cell'>Time<strong>{now_str}</strong></div>"
+            "</div></div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            "<div class='sidebar-status-bar'>"
+            "<span class='sbadge sbadge-offline'>⬤ API Offline</span>"
+            f"<div class='sidebar-status-grid'>"
+            f"<div class='sidebar-status-cell'>Time<strong>{now_str}</strong></div>"
+            "</div></div>",
+            unsafe_allow_html=True,
+        )
+        st.caption(f"`{API_URL}`")
+
+
+def render_sidebar(health: dict | None = None) -> None:
+    if health is None:
+        health = check_api_health(API_URL)
+
     with st.sidebar:
         st.markdown(
-            "<div style='padding:8px 0 12px;'>"
-            "<div style='font-size:20px;font-weight:800;color:#00c8c0;letter-spacing:-0.5px;'>⬡ PredictMaint</div>"
+            "<div style='padding:4px 0 4px;'>"
+            "<div style='font-size:18px;font-weight:800;color:#00c8c0;letter-spacing:-0.5px;'>⬡ PredictMaint</div>"
             "<div style='font-size:10px;color:#5a8a9a;text-transform:uppercase;"
             "letter-spacing:2px;margin-top:3px;'>MetroPT-3 · Compressor AI</div>"
             "</div>",
             unsafe_allow_html=True,
         )
 
-        health = check_api_health(API_URL)
-        st.markdown("<div class='sidebar-label'>System Status</div>", unsafe_allow_html=True)
+        _render_sidebar_status_bar(health)
 
-        if health and health.get("model_loaded"):
-            st.markdown("<span class='sbadge sbadge-online'>⬤ API Online</span>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            for key, val in [
-                ("Model",   health.get("model_name","—").replace("_"," ").title()),
-                ("Val F1",  f"{health.get('model_val_f1',0):.4f}"),
-                ("Served",  f"{health.get('predictions_served',0):,}"),
-            ]:
-                st.markdown(
-                    f"<div class='stat-row'><span class='stat-key'>{key}</span>"
-                    f"<span class='stat-val'>{val}</span></div>",
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.markdown("<span class='sbadge sbadge-offline'>⬤ API Offline</span>", unsafe_allow_html=True)
-            st.caption(f"`{API_URL}`")
-
-        st.markdown("<div class='sidebar-label'>Configuration</div>", unsafe_allow_html=True)
-        for key, val in [
-            ("Alert threshold", "≥ 50%"),
-            ("Horizon",         "6 hr pre-fault"),
-            ("Dataset",         "MetroPT-3"),
-            ("Class balance",   "class_weight=balanced"),
-        ]:
-            st.markdown(
-                f"<div class='stat-row'><span class='stat-key'>{key}</span>"
-                f"<span class='stat-val'>{val}</span></div>",
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("<div class='sidebar-label'>Demo Scenarios</div>", unsafe_allow_html=True)
-        st.caption("Load a sensor profile and run inference automatically.")
-
-        active = st.session_state.get("active_scenario", "Normal")
         st.markdown(
-            f"<p class='scenario-active'>Active profile: <strong>{active}</strong></p>",
+            "<div class='sidebar-label' style='margin-top:6px;margin-bottom:2px;'>Demo Scenarios</div>"
+            "<p style='font-size:11px;color:#8aaaba;margin:0 0 4px;line-height:1.3;'>"
+            "Load a sensor profile and run inference automatically.</p>"
+            f"<p class='scenario-active' style='margin:0 0 6px;'>Active profile: "
+            f"<strong>{st.session_state.get('active_scenario', 'Normal')}</strong></p>",
             unsafe_allow_html=True,
         )
 
-        sc1, sc2 = st.columns(2)
+        active = st.session_state.get("active_scenario", "Normal")
+        sc1, sc2 = st.columns(2, gap="small")
         with sc1:
             if st.button("🟢 Normal", use_container_width=True, key="btn_scenario_normal"):
                 apply_scenario("Normal")
@@ -1031,6 +1106,19 @@ def render_sidebar() -> None:
 
         with st.expander("View profile values", expanded=False):
             _render_scenario_values(active)
+
+        with st.expander("Configuration", expanded=False):
+            for key, val in [
+                ("Alert threshold", "≥ 50%"),
+                ("Horizon",         "6 hr pre-fault"),
+                ("Dataset",         "MetroPT-3"),
+                ("Class balance",   "class_weight=balanced"),
+            ]:
+                st.markdown(
+                    f"<div class='stat-row'><span class='stat-key'>{key}</span>"
+                    f"<span class='stat-val'>{val}</span></div>",
+                    unsafe_allow_html=True,
+                )
 
         n      = len(st.session_state.history)
         faults = sum(1 for p in st.session_state.history if p["alert"])
@@ -1319,34 +1407,18 @@ def render_performance(metrics: dict | None) -> None:
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def main() -> None:
     _init_sensor_state()
-    render_sidebar()
+    health = check_api_health(API_URL)
+    render_sidebar(health)
 
     # ── Hero title ───────────────────────────────────────────────────────────
-    health     = check_api_health(API_URL)
-    model_chip = health.get("model_name", "—").replace("_", " ").title() if health else "Offline"
-    served     = health.get("predictions_served", 0) if health else 0
-    now_str    = datetime.now().strftime("%H:%M:%S")
-    online     = health and health.get("model_loaded")
-    status_dot = "🟢" if online else "🔴"
-
     st.markdown(
         "<div class='hero'>"
         "<div class='hero-icon'>⬡</div>"
         "<div>"
         "<div class='hero-title'>Compressor <span>Predictive</span><br>Maintenance</div>"
+        "<div class='hero-sub'>MetroPT-3 Industrial Air Compressor · Real-time Fault Detection AI</div>"
         "</div>"
         "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── Slim status topbar ───────────────────────────────────────────────────
-    st.markdown(
-        f"<div class='topbar'>"
-        f"<span class='topbar-sub-inline'>MetroPT-3 Industrial Air Compressor &nbsp;·&nbsp; Real-time Fault Detection AI</span>"
-        f"<span class='topbar-chip'>{status_dot}&nbsp; {model_chip}</span>"
-        f"<span class='topbar-chip'>📡&nbsp; {served:,} predictions served</span>"
-        f"<span class='topbar-chip'>🕐&nbsp; {now_str}</span>"
-        f"</div>",
         unsafe_allow_html=True,
     )
 
