@@ -1,0 +1,32 @@
+{
+  "1hr": {
+    "n_fault_train": 3664,
+    "n_normal_train": 173233,
+    "val_f1": 0.9385,
+    "val_recall": 0.9809,
+    "val_precision": 0.8995,
+    "val_auc": 0.9976,
+    "test_f1": 0.9307,
+    "test_recall": 0.9745
+  },
+  "6hr": {
+    "n_fault_train": 4504,
+    "n_normal_train": 172393,
+    "val_f1": 0.9122,
+    "val_recall": 0.8984,
+    "val_precision": 0.9263,
+    "val_auc": 0.9944,
+    "test_f1": 0.9105,
+    "test_recall": 0.8964
+  },
+  "24hr": {
+    "n_fault_train": 6924,
+    "n_normal_train": 169973,
+    "val_f1": 0.8237,
+    "val_recall": 0.7984,
+    "val_precision": 0.8506,
+    "val_auc": 0.984,
+    "test_f1": 0.8217,
+    "test_recall": 0.7823
+  }
+}

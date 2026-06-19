@@ -14,7 +14,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_app_dir = Path(__file__).resolve().parent
+# Monorepo: dashboard/app.py → repo root has utils/
+# HF Space: app.py at Space root with utils/ alongside
+PROJECT_ROOT = _app_dir if (_app_dir / "utils").is_dir() else _app_dir.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -41,12 +44,104 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 /* ══════════════════════════════════════════════════
-   HIDE ALL STREAMLIT CHROME (menus, toolbar, footer)
+   STREAMLIT CHROME — keep sidebar toggle, hide clutter
    ══════════════════════════════════════════════════ */
-#MainMenu, footer, [data-testid="stHeader"],
+#MainMenu, footer,
 [data-testid="stToolbar"], [data-testid="stDecoration"],
 [data-testid="stStatusWidget"], [data-testid="stMainMenuPopover"],
 [data-testid="manage-app-button"] { display: none !important; }
+
+/* Minimal header — keeps the sidebar open/close control visible */
+[data-testid="stHeader"] {
+    background: #050f1a !important;
+    border-bottom: 1px solid #112030;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    z-index: 1000 !important;
+}
+button[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    color: #00c8c0 !important;
+    z-index: 1001 !important;
+}
+
+/* ══════════════════════════════════════
+   SIDEBAR — fixed width, scrollable, readable
+   ══════════════════════════════════════ */
+section[data-testid="stSidebar"] {
+    background: #081524 !important;
+    border-right: 1px solid #112030;
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 280px !important;
+    flex: 0 0 280px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+/* Remove empty Streamlit sidebar header spacer */
+[data-testid="stSidebarHeader"] {
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+}
+section[data-testid="stSidebar"] > div {
+    padding: 8px 12px 24px !important;
+    width: auto !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+[data-testid="stSidebarContent"] {
+    padding: 0 0.25rem 1rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+/* Sidebar text & controls — force readable colors on dark bg */
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] li,
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span,
+section[data-testid="stSidebar"] .stCaption,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] small {
+    color: #c8dce8 !important;
+}
+section[data-testid="stSidebar"] .stat-key { color: #6a8a9a !important; }
+section[data-testid="stSidebar"] .stat-val { color: #d0e8f5 !important; }
+section[data-testid="stSidebar"] .sidebar-label { color: #00c8c0 !important; }
+section[data-testid="stSidebar"] .stButton > button {
+    color: #d0e8f5 !important;
+    background: #0c1e30 !important;
+    border: 1px solid #1a3244 !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary span {
+    color: #d0e8f5 !important;
+}
+
+/* Main content — offset for absolute-positioned stMain + clear fixed header */
+section[data-testid="stMain"] {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+}
+[data-testid="stAppViewContainer"]:has(section[data-testid="stSidebar"][aria-expanded="true"])
+section[data-testid="stMain"] > div.block-container {
+    margin-left: 280px !important;
+    max-width: calc(100% - 280px) !important;
+    box-sizing: border-box !important;
+    padding: 3.25rem 1.5rem 2.5rem !important;
+}
+[data-testid="stAppViewContainer"]:has(section[data-testid="stSidebar"][aria-expanded="false"])
+section[data-testid="stMain"] > div.block-container {
+    margin-left: 0 !important;
+    max-width: 100% !important;
+    padding: 3.25rem 1.5rem 2.5rem !important;
+}
+section[data-testid="stSidebar"] .scenario-active,
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
+    color: #8aaaba !important;
+}
 
 /* ══════════════════════════════════════
    BASE
@@ -59,8 +154,7 @@ html, body, [data-testid="stAppViewContainer"] {
     background: #081524 !important;
     border-right: 1px solid #112030;
 }
-.block-container { padding: 20px 24px 40px !important; max-width: 100% !important; }
-section[data-testid="stSidebar"] > div { padding-top: 20px !important; }
+.block-container { max-width: 100% !important; }
 
 /* ══════════════════════════════════════
    TYPOGRAPHY
@@ -197,22 +291,23 @@ p, li       { color: #5a7a8a; }
 .hero {
     display: flex;
     align-items: center;
-    gap: 18px;
-    padding: 8px 0 22px;
+    gap: 14px;
+    padding: 4px 0 14px;
+    margin-top: 0;
 }
 .hero-icon {
-    font-size: clamp(36px, 4.5vw, 52px);
+    font-size: clamp(28px, 3.5vw, 42px);
     line-height: 1;
     color: #00c8c0;
     filter: drop-shadow(0 0 14px rgba(0,200,192,0.50));
     flex-shrink: 0;
 }
 .hero-title {
-    font-size: clamp(26px, 3.8vw, 46px);
+    font-size: clamp(20px, 2.8vw, 34px);
     font-weight: 900;
     color: #d0e8f5;
-    letter-spacing: -1.5px;
-    line-height: 1.05;
+    letter-spacing: -1px;
+    line-height: 1.15;
 }
 .hero-title span { color: #00c8c0; }
 .hero-sub {
@@ -379,6 +474,47 @@ p, li       { color: #5a7a8a; }
 .stat-key { color: #3a5a6a; white-space: nowrap; }
 .stat-val { color: #d0e8f5; font-weight: 600; text-align: right; word-break: break-word; }
 
+/* ── Demo scenario sidebar ── */
+.scenario-values {
+    background: #081524;
+    border: 1px solid #112030;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+.scenario-values-title {
+    font-size: 9px;
+    font-weight: 700;
+    color: #00c8c0;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+}
+.scenario-values-divider {
+    border-top: 1px solid #112030;
+    margin: 8px 0;
+}
+.scenario-active {
+    font-size: 11px;
+    color: #7a9ab0;
+    margin: 6px 0 2px;
+}
+.scenario-active strong { color: #d0e8f5; }
+div[data-testid="stSidebar"] .stButton > button.scenario-normal-btn {
+    background: rgba(0,224,150,.12) !important;
+    border: 1px solid #00e096 !important;
+    color: #00e096 !important;
+    font-weight: 700 !important;
+}
+div[data-testid="stSidebar"] .stButton > button.scenario-fault-btn {
+    background: rgba(255,61,90,.12) !important;
+    border: 1px solid #ff3d5a !important;
+    color: #ff3d5a !important;
+    font-weight: 700 !important;
+}
+
 /* ── Status badge ── */
 .sbadge {
     display: inline-flex;
@@ -465,18 +601,95 @@ C_PURPLE = "#9b72cf"
 
 # ─── Sensor config ────────────────────────────────────────────────────────────
 ANALOGUE = {
-    "TP2":            (-0.5,  1.0,  -0.012, "bar"),
-    "TP3":            (0.0,  12.0,   9.358, "bar"),
-    "H1":             (0.0,  12.0,   9.340, "bar"),
-    "DV_pressure":    (-0.5,  0.5,  -0.024, "bar"),
-    "Reservoirs":     (0.0,  12.0,   9.358, "bar"),
-    "Oil_temperature":(30.0,100.0,   53.6,  "°C"),
+    "TP2":            (-0.05, 11.0,  -0.012, "bar"),
+    "TP3":            (7.0,  12.0,   9.358, "bar"),
+    "H1":             (-0.05, 11.0,   9.340, "bar"),
+    "DV_pressure":    (-0.05,  7.0,  -0.024, "bar"),
+    "Reservoirs":     (7.0,  12.0,   9.358, "bar"),
+    "Oil_temperature":(30.0, 100.0,   53.6,  "°C"),
     "Motor_current":  (0.0,  10.0,   0.04,  "A"),
 }
 DIGITAL_DEFAULTS = {
     "COMP": True, "DV_eletric": False, "Towers": True, "MPG": True,
     "LPS": False, "Pressure_switch": True, "Oil_level": True, "Caudal_impulses": True,
 }
+
+# Demo profiles — Normal = healthy baseline; Faulty = pre-fault window sample (6 hr horizon)
+SCENARIO_PRESETS: dict[str, dict[str, float | bool]] = {
+    "Normal": {
+        "TP2": -0.018, "TP3": 9.984, "H1": 9.976, "DV_pressure": -0.020,
+        "Reservoirs": 9.982, "Oil_temperature": 73.625, "Motor_current": 3.748,
+        "COMP": True, "DV_eletric": False, "Towers": True, "MPG": True,
+        "LPS": False, "Pressure_switch": True, "Oil_level": False, "Caudal_impulses": True,
+    },
+    "Faulty": {
+        "TP2": 7.584, "TP3": 8.106, "H1": -0.006, "DV_pressure": 2.036,
+        "Reservoirs": 8.108, "Oil_temperature": 76.15, "Motor_current": 5.57,
+        "COMP": False, "DV_eletric": True, "Towers": False, "MPG": False,
+        "LPS": False, "Pressure_switch": False, "Oil_level": True, "Caudal_impulses": True,
+    },
+}
+
+def _input_key(sensor: str) -> str:
+    return f"in_{sensor}"
+
+
+def _init_sensor_state() -> None:
+    """Seed session state once with the Normal operating profile."""
+    if st.session_state.get("sensors_initialized"):
+        return
+    for key, val in SCENARIO_PRESETS["Normal"].items():
+        st.session_state[_input_key(key)] = val
+    st.session_state.active_scenario = "Normal"
+    st.session_state.sensors_initialized = True
+
+
+def apply_scenario(name: str) -> None:
+    """Load a demo profile into all sensor widgets and queue an auto-prediction."""
+    preset = SCENARIO_PRESETS[name]
+    for key, val in preset.items():
+        st.session_state[_input_key(key)] = val
+    st.session_state.active_scenario = name
+    st.session_state.run_prediction = True
+
+
+def _format_preset_value(key: str, val: float | bool) -> str:
+    if isinstance(val, bool):
+        return "ON" if val else "OFF"
+    if key in ("Oil_temperature",):
+        return f"{float(val):.1f}"
+    if key in ("Motor_current",):
+        return f"{float(val):.2f}"
+    return f"{float(val):.3f}"
+
+
+def _render_scenario_values(name: str) -> None:
+    """Show the sensor values for the selected demo profile."""
+    preset = SCENARIO_PRESETS[name]
+    analogue_keys = list(ANALOGUE.keys())
+    rows_html = "".join(
+        f"<div class='stat-row'>"
+        f"<span class='stat-key'>{key}</span>"
+        f"<span class='stat-val'>{_format_preset_value(key, preset[key])}</span>"
+        f"</div>"
+        for key in analogue_keys
+    )
+    digital_html = "".join(
+        f"<div class='stat-row'>"
+        f"<span class='stat-key'>{key}</span>"
+        f"<span class='stat-val'>{_format_preset_value(key, preset[key])}</span>"
+        f"</div>"
+        for key in DIGITAL_DEFAULTS
+    )
+    st.markdown(
+        f"<div class='scenario-values'>"
+        f"<div class='scenario-values-title'>{name} profile</div>"
+        f"{rows_html}"
+        f"<div class='scenario-values-divider'></div>"
+        f"{digital_html}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 # ─── Session state ────────────────────────────────────────────────────────────
 if "history" not in st.session_state:
@@ -551,12 +764,10 @@ def _donut_gauge(prob_fault: float, alert: bool) -> go.Figure:
 
 def _radar(payload: dict) -> go.Figure:
     """Normalised pressure profile radar."""
-    sensors  = ["TP2", "TP3", "H1", "DV_pressure", "Reservoirs"]
-    lo_vals  = [-0.5,  0.0, 0.0, -0.5,  0.0]
-    hi_vals  = [ 1.0, 12.0,12.0,  0.5, 12.0]
+    sensors = ["TP2", "TP3", "H1", "DV_pressure", "Reservoirs"]
     norm = [
-        max(0.0, min(1.0, (payload[s] - lo) / (hi - lo + 1e-9)))
-        for s, lo, hi in zip(sensors, lo_vals, hi_vals)
+        max(0.0, min(1.0, (payload[s] - ANALOGUE[s][0]) / (ANALOGUE[s][1] - ANALOGUE[s][0] + 1e-9)))
+        for s in sensors
     ]
     r_closed     = norm + [norm[0]]
     theta_closed = sensors + [sensors[0]]
@@ -760,7 +971,7 @@ def render_sidebar() -> None:
         st.markdown(
             "<div style='padding:8px 0 12px;'>"
             "<div style='font-size:20px;font-weight:800;color:#00c8c0;letter-spacing:-0.5px;'>⬡ PredictMaint</div>"
-            "<div style='font-size:10px;color:#1a3a4a;text-transform:uppercase;"
+            "<div style='font-size:10px;color:#5a8a9a;text-transform:uppercase;"
             "letter-spacing:2px;margin-top:3px;'>MetroPT-3 · Compressor AI</div>"
             "</div>",
             unsafe_allow_html=True,
@@ -798,6 +1009,28 @@ def render_sidebar() -> None:
                 f"<span class='stat-val'>{val}</span></div>",
                 unsafe_allow_html=True,
             )
+
+        st.markdown("<div class='sidebar-label'>Demo Scenarios</div>", unsafe_allow_html=True)
+        st.caption("Load a sensor profile and run inference automatically.")
+
+        active = st.session_state.get("active_scenario", "Normal")
+        st.markdown(
+            f"<p class='scenario-active'>Active profile: <strong>{active}</strong></p>",
+            unsafe_allow_html=True,
+        )
+
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            if st.button("🟢 Normal", use_container_width=True, key="btn_scenario_normal"):
+                apply_scenario("Normal")
+                st.rerun()
+        with sc2:
+            if st.button("🔴 Faulty", use_container_width=True, key="btn_scenario_faulty"):
+                apply_scenario("Faulty")
+                st.rerun()
+
+        with st.expander("View profile values", expanded=False):
+            _render_scenario_values(active)
 
         n      = len(st.session_state.history)
         faults = sum(1 for p in st.session_state.history if p["alert"])
@@ -838,10 +1071,10 @@ def collect_inputs() -> dict:
                 val = st.slider(
                     f"{key}",
                     min_value=float(lo), max_value=float(hi),
-                    value=float(default),
                     step=0.001 if abs(hi - lo) <= 2 else 0.01,
                     format="%.3f",
                     label_visibility="collapsed",
+                    key=_input_key(key),
                 )
                 pv[key] = val
                 st.markdown(
@@ -863,7 +1096,8 @@ def collect_inputs() -> dict:
         with tc[0]:
             oil_temp = st.slider(
                 "Oil Temperature", min_value=30.0, max_value=100.0,
-                value=53.6, step=0.1, label_visibility="collapsed",
+                step=0.1, label_visibility="collapsed",
+                key=_input_key("Oil_temperature"),
             )
             st.markdown(
                 f"<div class='sensor-val-card'>"
@@ -876,7 +1110,8 @@ def collect_inputs() -> dict:
         with tc[1]:
             motor_curr = st.slider(
                 "Motor Current", min_value=0.0, max_value=10.0,
-                value=0.04, step=0.01, label_visibility="collapsed",
+                step=0.01, label_visibility="collapsed",
+                key=_input_key("Motor_current"),
             )
             st.markdown(
                 f"<div class='sensor-val-card'>"
@@ -900,9 +1135,28 @@ def collect_inputs() -> dict:
             d_cols = st.columns(4)
             for col, (sensor, default) in zip(d_cols, row):
                 with col:
-                    dv[sensor] = float(st.toggle(sensor, value=default))
+                    dv[sensor] = float(st.toggle(sensor, key=_input_key(sensor)))
 
     return {**pv, "Oil_temperature": oil_temp, "Motor_current": motor_curr, **dv}
+
+
+def _handle_prediction(payload: dict, fi_data: dict | None) -> None:
+    """Call the API and render the prediction panel."""
+    with st.spinner("Analysing sensor readings…"):
+        result = call_predict(API_URL, payload)
+
+    if "error" in result:
+        st.error(f"Prediction failed: {result['error']}")
+        return
+
+    st.session_state.history.append({
+        "timestamp":         datetime.now().strftime("%H:%M:%S"),
+        "probability_fault": result["probability_fault"],
+        "status":            result["status"],
+        "alert":             result["alert"],
+    })
+    st.markdown("<hr>", unsafe_allow_html=True)
+    render_result(result, payload, fi_data)
 
 
 # ─── Result panel ─────────────────────────────────────────────────────────────
@@ -1064,6 +1318,7 @@ def render_performance(metrics: dict | None) -> None:
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def main() -> None:
+    _init_sensor_state()
     render_sidebar()
 
     # ── Hero title ───────────────────────────────────────────────────────────
@@ -1104,21 +1359,11 @@ def main() -> None:
         payload = collect_inputs()
         st.markdown("<br>", unsafe_allow_html=True)
 
-        if st.button("⚡  ANALYSE SENSOR READINGS", type="primary", use_container_width=True):
-            with st.spinner("Analysing sensor readings…"):
-                result = call_predict(API_URL, payload)
+        run_clicked = st.button("⚡  ANALYSE SENSOR READINGS", type="primary", use_container_width=True)
+        auto_run = st.session_state.pop("run_prediction", False)
 
-            if "error" in result:
-                st.error(f"Prediction failed: {result['error']}")
-            else:
-                st.session_state.history.append({
-                    "timestamp":        datetime.now().strftime("%H:%M:%S"),
-                    "probability_fault":result["probability_fault"],
-                    "status":           result["status"],
-                    "alert":            result["alert"],
-                })
-                st.markdown("<hr>", unsafe_allow_html=True)
-                render_result(result, payload, fi_data)
+        if run_clicked or auto_run:
+            _handle_prediction(payload, fi_data)
 
         if st.session_state.history:
             st.markdown("<hr>", unsafe_allow_html=True)

@@ -248,15 +248,21 @@ Dashboard available at `http://localhost:8501`.
 
 3. **Copy the required files into the Space repo**
 
+   Run these from the **project root** (`predictive-maintenance/`), not from inside `hf-space/`:
+
    ```bash
-   # From your project root
-   cp dashboard/app.py         hf-space/
-   cp dashboard/requirements.txt hf-space/
-   cp dashboard/README.md      hf-space/   # contains the HF --- metadata block
-   cp -r .streamlit/           hf-space/.streamlit/
+   cp dashboard/app.py              hf-space/app.py
+   cp dashboard/requirements.txt    hf-space/requirements.txt
+   cp dashboard/README.md           hf-space/README.md
+   cp -r .streamlit                 hf-space/.streamlit
    mkdir -p hf-space/utils
-   cp utils/api_client.py      hf-space/utils/
+   cp utils/api_client.py           hf-space/utils/
+   mkdir -p hf-space/models
+   cp models/evaluation_results.json hf-space/models/
    ```
+
+   > **Git Bash on Windows:** use `hf-space/app.py` as the destination, not `hf-space/` alone.
+   > `cp dashboard/app.py hf-space/` fails because the destination must be a filename when copying a single file.
 
    Your Space repo should look like:
    ```
